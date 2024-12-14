@@ -7,16 +7,21 @@ pipeline {
     stages {
         stage('Build image') {
             steps {
-                sh 'docker build -t mrmastermind77/todo-app:${BUILD_ID} .' // Updated with your DockerHub username
-                sh 'docker images'
+                script {
+                    // This should run inside a node context
+                    sh 'docker build -t mrmastermind77/todo-app:${BUILD_ID} .' // Updated with your DockerHub username
+                    sh 'docker images'
+                }
             }
         }
 
         stage('Push Docker hub') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-mrmastermind77', usernameVariable: 'DOCKER_CRED_USR', passwordVariable: 'DOCKER_CRED_PSW')]) { 
-                    sh 'docker login -u ${DOCKER_CRED_USR} -p ${DOCKER_CRED_PSW}' 
-                    sh 'docker push mrmastermind77/todo-app:${BUILD_ID}' // Updated with your DockerHub username
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-mrmastermind77', usernameVariable: 'DOCKER_CRED_USR', passwordVariable: 'DOCKER_CRED_PSW')]) { 
+                        sh 'docker login -u ${DOCKER_CRED_USR} -p ${DOCKER_CRED_PSW}' 
+                        sh 'docker push mrmastermind77/todo-app:${BUILD_ID}' // Updated with your DockerHub username
+                    }
                 }
             }
         }
@@ -31,16 +36,19 @@ pipeline {
                     def dockerComposeUp = 'docker compose up -d'
 
                     sshagent(['VM-APP-SSH']) { // Using your updated SSH credential ID
-                        sh """
-                        ssh -o StrictHostKeyChecking=no your-username@your-server-ip "
-                            ${gitClone} &&
-                            cd to-do-list-app &&
-                            ${dockerPull} &&
-                            ${dockerComposeDown} &&
-                            ${deleteImages} &&
-                            ${dockerComposeUp}
-                        "
-                        """
+                        // Wrap this block in a node context to make the ssh step work
+                        node {
+                            sh """
+                            ssh -o StrictHostKeyChecking=no your-username@your-server-ip "
+                                ${gitClone} &&
+                                cd to-do-list-app &&
+                                ${dockerPull} &&
+                                ${dockerComposeDown} &&
+                                ${deleteImages} &&
+                                ${dockerComposeUp}
+                            "
+                            """
+                        }
                     }
                 }
             }
@@ -49,7 +57,12 @@ pipeline {
 
     post {
         always {
-            sh 'docker image prune -a --force'  // Clean up any Docker images after the pipeline execution
+            script {
+                // Wrap the docker cleanup in a node context
+                node {
+                    sh 'docker image prune -a --force'  // Clean up any Docker images after the pipeline execution
+                }
+            }
         }
     }
 }
