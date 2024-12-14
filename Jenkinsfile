@@ -29,7 +29,7 @@ pipeline {
         stage('Deploy to Server') {
             steps {
                 script {
-                    def gitClone = 'git clone https://github.com/mrmastermind77/to-do-list-app.git' // Updated with your GitHub repo URL
+                    def gitClone = 'git clone https://github.com/KABILESH77/to-do-list-app.git' // Updated with your GitHub repo URL
                     def dockerPull = 'docker pull mrmastermind77/todo-app:${BUILD_ID}' // Updated with your DockerHub image name
                     def dockerComposeDown = 'docker compose down --volumes'
                     def deleteImages = 'docker image prune -a --force'
