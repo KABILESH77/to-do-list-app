@@ -8,9 +8,9 @@ pipeline {
         stage('Build image') {
             steps {
                 script {
-                    // Use bat instead of sh for Windows
+                    // This should run inside a node context, using bat for Windows
                     bat 'docker build -t mrmastermind77/todo-app:${BUILD_ID} .' // Updated with your DockerHub username
-                    bat 'docker images'
+                    bat 'docker images' // Show Docker images for debugging
                 }
             }
         }
@@ -19,8 +19,8 @@ pipeline {
             steps {
                 script {
                     withCredentials([usernamePassword(credentialsId: 'dockerhub-mrmastermind77', usernameVariable: 'DOCKER_CRED_USR', passwordVariable: 'DOCKER_CRED_PSW')]) { 
-                        bat 'docker login -u %DOCKER_CRED_USR% -p %DOCKER_CRED_PSW%' // Use Windows environment variable syntax
-                        bat 'docker push mrmastermind77/todo-app:${BUILD_ID}' // Updated with your DockerHub username
+                        bat "docker login -u ${DOCKER_CRED_USR} -p ${DOCKER_CRED_PSW}" // Docker login with credentials
+                        bat "docker push mrmastermind77/todo-app:${BUILD_ID}" // Push to DockerHub
                     }
                 }
             }
@@ -31,21 +31,22 @@ pipeline {
                 script {
                     def gitClone = 'git clone https://github.com/KABILESH77/to-do-list-app.git' // Updated with your GitHub repo URL
                     def dockerPull = 'docker pull mrmastermind77/todo-app:${BUILD_ID}' // Updated with your DockerHub image name
-                    def dockerComposeDown = 'docker-compose down --volumes' // Updated for Windows compatible command
-                    def deleteImages = 'docker image prune -a --force'
-                    def dockerComposeUp = 'docker-compose up -d'
+                    def dockerComposeDown = 'docker-compose down --volumes' // Ensure Docker Compose is correct
+                    def deleteImages = 'docker image prune -a --force' // Clean up unused Docker images
+                    def dockerComposeUp = 'docker-compose up -d' // Deploy the Docker containers
 
                     sshagent(['VM-APP-SSH']) { // Using your updated SSH credential ID
                         // Wrap this block in a node context to make the ssh step work
                         node {
                             bat """
-                            ssh -o StrictHostKeyChecking=no your-username@your-server-ip ^
-                                ${gitClone} && ^
-                                cd to-do-list-app && ^
-                                ${dockerPull} && ^
-                                ${dockerComposeDown} && ^
-                                ${deleteImages} && ^
+                            ssh -i /path/to/your/ssh/key -o StrictHostKeyChecking=no your-username@your-server-ip "
+                                ${gitClone} &&
+                                cd to-do-list-app &&
+                                ${dockerPull} &&
+                                ${dockerComposeDown} &&
+                                ${deleteImages} &&
                                 ${dockerComposeUp}
+                            "
                             """
                         }
                     }
@@ -57,7 +58,7 @@ pipeline {
     post {
         always {
             script {
-                // Wrap the docker cleanup in a node context
+                // Wrap the Docker cleanup in a node context to ensure proper execution on Windows
                 node {
                     bat 'docker image prune -a --force'  // Clean up any Docker images after the pipeline execution
                 }
